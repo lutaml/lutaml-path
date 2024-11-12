@@ -1,0 +1,153 @@
+= LutaML Path
+:source-highlighter: highlight.js
+:toc: macro
+
+image:https://github.com/lutaml/lutaml-path/workflows/build/badge.svg["Build Status", link="https://github.com/lutaml/lutaml-path/actions?workflow=build"]
+image:https://img.shields.io/gem/v/lutaml-path.svg["Gem Version", link="https://rubygems.org/gems/lutaml-path"]
+
+toc::[]
+
+== What is LutaML Path?
+
+LutaML Path provides a parser for path expressions that reference elements
+within UML models. It implements a path notation similar to the Object
+Constraint Language (OCL) to locate UML model elements across package
+hierarchies.
+
+This gem is specifically designed to work with OMG UML models and supports
+referencing any UML element including packages, classes, interfaces, properties,
+and operations.
+
+== How to install
+
+[source,ruby]
+----
+gem install lutaml-path
+----
+
+Or add this line to your application's Gemfile:
+
+[source,ruby]
+----
+gem 'lutaml-path'
+----
+
+== Basic usage
+
+The path syntax follows UML namespace conventions using `::` as a separator:
+
+[source,ruby]
+----
+require 'lutaml/path'
+
+# Simple element reference
+path = Lutaml::Path.parse("Package::Class")
+
+# Absolute path (starts from root namespace)
+path = Lutaml::Path.parse("::Root::Package::Class")
+
+# Path with wildcards
+path = Lutaml::Path.parse("Package::*::BaseClass*")
+----
+
+== Working with patterns
+
+The parser supports several kinds of patterns:
+
+* `*` - matches any sequence of characters
+* `?` - matches any single character
+* `[abc]` - matches any character in the set
+* `{pattern1,pattern2}` - matches any of the comma-separated patterns
+
+Examples:
+
+[source,ruby]
+----
+# Match any class starting with "Base"
+path = Lutaml::Path.parse("Base*")
+
+# Match specific character patterns
+path = Lutaml::Path.parse("Package::[A-Z]*::Interface")
+
+# Match multiple alternatives
+path = Lutaml::Path.parse("model::{Abstract,Base}Class")
+----
+
+== How to match paths
+
+The parsed path can be used to match against actual element paths:
+
+[source,ruby]
+----
+path = Lutaml::Path.parse("model::*::BaseClass")
+
+path.match?(["model", "core", "BaseClass"])     # => true
+path.match?(["model", "BaseClass"])             # => false
+path.match?(["other", "core", "BaseClass"])     # => false
+----
+
+== Understanding absolute and relative paths
+
+* Absolute paths (starting with `::`) must match the entire element path
+* Relative paths can match elements at any depth
+
+[source,ruby]
+----
+absolute = Lutaml::Path.parse("::model::Class")
+relative = Lutaml::Path.parse("model::Class")
+
+absolute.match?(["model", "Class"])           # => true
+absolute.match?(["root", "model", "Class"])   # => false
+
+relative.match?(["model", "Class"])           # => true
+relative.match?(["root", "model", "Class"])   # => true
+----
+
+== Path syntax reference
+
+The path expression grammar follows these rules:
+
+* Path segments are separated by `::`
+* The separator can be escaped with a backslash: `\::`
+* An absolute path starts with `::`
+* Each segment can contain:
+** Regular characters (including Unicode)
+** Wildcards (`*`, `?`)
+** Character classes (`[abc]`)
+** Alternatives (`{pattern1,pattern2}`)
+
+== Matching paths with escaped colons
+
+When matching paths with escaped colons, the escaped sequences are treated as
+part of the segment name:
+
+[source,ruby]
+----
+path = Lutaml::Path.parse("model::std\\::string")
+
+path.match?(["model", "std::string"])     # => true
+path.match?(["model", "std", "string"])   # => false
+----
+
+== Examples of UML element references
+
+[source,ruby]
+----
+# Reference a class in a package
+"model::shapes::Rectangle"
+
+# Reference an operation on a class
+"model::shapes::Rectangle::area"
+
+# Reference a property in a nested class
+"model::university::Student::Address::street"
+
+# Find all classes implementing an interface
+"model::*::IShape"
+
+# Match any stereotype application
+"model::profiles::UMLProfile::*Stereotype"
+----
+
+These paths can be used to locate elements across UML model hierarchies, making
+it easier to reference and work with model elements programmatically.
