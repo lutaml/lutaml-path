@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Lutaml
   module Path
     class PathSegment
@@ -14,6 +16,7 @@ module Lutaml
 
       def match?(segment)
         return File.fnmatch(name, segment) if pattern?
+
         name == segment
       end
     end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # lib/lutaml/path/transformer.rb
 require "parslet"
 
@@ -14,14 +16,14 @@ module Lutaml
 
       # Transform more_segments rule
       rule(more_segments: sequence(:segments)) { segments }
-      rule(more_segments: simple(:segment)) { [segment].compact }  # For single segment
-      rule(more_segments: []) { [] }  # For empty segments
+      rule(more_segments: simple(:segment)) { [segment].compact } # For single segment
+      rule(more_segments: []) { [] } # For empty segments
 
       # Absolute path
       rule(
         absolute: simple(:_),
         first_segment: simple(:first),
-        more_segments: sequence(:rest),
+        more_segments: sequence(:rest)
       ) do |dict|
         segments = [dict[:first]] + Array(dict[:rest]).compact
         ElementPath.new(segments, absolute: true)
@@ -30,7 +32,7 @@ module Lutaml
       # Relative path
       rule(
         first_segment: simple(:first),
-        more_segments: sequence(:rest),
+        more_segments: sequence(:rest)
       ) do |dict|
         segments = [dict[:first]] + Array(dict[:rest]).compact
         ElementPath.new(segments, absolute: false)

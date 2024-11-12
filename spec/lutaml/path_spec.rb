@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "spec_helper"
 
 RSpec.describe Lutaml::Path do
@@ -13,7 +15,7 @@ RSpec.describe Lutaml::Path do
     it "parses absolute paths" do
       path = described_class.parse("::Package::Element")
       expect(path.absolute?).to be true
-      expect(path.segments.map(&:name)).to eq(["Package", "Element"])
+      expect(path.segments.map(&:name)).to eq(%w[Package Element])
     end
 
     xit "parses paths with patterns" do
@@ -29,13 +31,13 @@ RSpec.describe Lutaml::Path do
 
     it "handles Unicode characters" do
       path = described_class.parse("建物::窓::ガラス")
-      expect(path.segments.map(&:name)).to eq(["建物", "窓", "ガラス"])
+      expect(path.segments.map(&:name)).to eq(%w[建物 窓 ガラス])
     end
 
     xit "handles glob patterns" do
       path = described_class.parse("pkg::{a,b}*::[0-9]*")
       expect(path.segments.last.pattern?).to be true
-      expect(path.match?(["pkg", "btest", "123"])).to be true
+      expect(path.match?(%w[pkg btest 123])).to be true
     end
 
     it "raises error on empty segments" do
@@ -64,23 +66,23 @@ RSpec.describe Lutaml::Path do
   describe Lutaml::Path::ElementPath do
     it "matches path segments" do
       path = described_class.new([
-        Lutaml::Path::PathSegment.new("pkg"),
-        Lutaml::Path::PathSegment.new("*", is_pattern: true),
-        Lutaml::Path::PathSegment.new("Element"),
-      ])
+                                   Lutaml::Path::PathSegment.new("pkg"),
+                                   Lutaml::Path::PathSegment.new("*", is_pattern: true),
+                                   Lutaml::Path::PathSegment.new("Element")
+                                 ])
 
-      expect(path.match?(["pkg", "sub", "Element"])).to be true
-      expect(path.match?(["other", "sub", "Element"])).to be false
+      expect(path.match?(%w[pkg sub Element])).to be true
+      expect(path.match?(%w[other sub Element])).to be false
     end
 
     it "respects absolute paths" do
       path = described_class.new([
-        Lutaml::Path::PathSegment.new("pkg"),
-        Lutaml::Path::PathSegment.new("Element"),
-      ], absolute: true)
+                                   Lutaml::Path::PathSegment.new("pkg"),
+                                   Lutaml::Path::PathSegment.new("Element")
+                                 ], absolute: true)
 
-      expect(path.match?(["pkg", "Element"])).to be true
-      expect(path.match?(["root", "pkg", "Element"])).to be false
+      expect(path.match?(%w[pkg Element])).to be true
+      expect(path.match?(%w[root pkg Element])).to be false
     end
   end
 end
