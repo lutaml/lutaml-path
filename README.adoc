@@ -10,13 +10,120 @@ toc::[]
 == What is LutaML Path?
 
 LutaML Path provides a parser for path expressions that reference elements
-within UML models. It implements a path notation similar to the Object
-Constraint Language (OCL) to locate UML model elements across package
-hierarchies.
+within information models.
+
+LutaML Path implements a path notation similar to the Object Constraint Language
+(OCL) to locate UML model elements across package hierarchies.
 
 This gem is specifically designed to work with OMG UML models and supports
 referencing any UML element including packages, classes, interfaces, properties,
 and operations.
+
+The path syntax is described below for UML.
+
+
+== UML element path specification
+
+=== Overview
+
+The UML element path specification extends the OCL 2.4 specification to provide
+a mechanism for uniquely identifying model elements (classes, interfaces,
+enumerations, etc.) within the UML package hierarchy. It provides both relative
+and absolute path references.
+
+=== Syntax
+
+An element path can be specified in these forms:
+
+* Single element: `ElementName`
+* Relative path: `Package1::Package2::ElementName`
+* Absolute path: `::Package1::Package2::ElementName`
+
+The absolute path variant starts with `::` to indicate the path begins at the model root.
+
+=== Unicode support
+
+Package and element names support full Unicode:
+
+* All Unicode letters and numbers are allowed
+* Names can contain any language characters including Japanese, Chinese, Korean etc.
+* Case sensitivity follows the source UML model
+* Pattern matching works with Unicode characters
+
+Examples:
+
+[source]
+----
+// Japanese package and class names
+建物::窓::ガラス
+::建築モデル::建物::窓
+
+// Mixed language names
+building::窓::Window
+geometry::図形::円
+
+// Patterns with Unicode
+建物::部品*
+*部::Base*
+----
+
+=== Path wildcards
+
+Segment wildcards match package hierarchy:
+
+* Single segment: `Package1::*::Element` matches Element in any subpackage of Package1
+* Multiple segments: `Package1::**::Element` matches Element in Package1 or any nested depth
+
+=== Name pattern wildcards
+
+Name patterns use glob syntax:
+
+* `*` - matches zero or more characters (including Unicode)
+* `?` - matches exactly one character (including Unicode)
+* `[abc]` - matches one character in the set
+* `[!abc]` - matches one character not in the set
+* `[a-z]` - matches one character in the range (ASCII only)
+* `{pat1,pat2}` - matches either pattern
+
+Examples:
+
+* `Base*` - matches names starting with "Base"
+* `*Model` - matches names ending with "Model"
+* `建物*` - matches names starting with "建物"
+* `{ドア,窓}` - matches exactly "ドア" or "窓"
+
+=== Grammar
+
+[source]
+----
+path ::= ['::]' package-path element-pattern
+package-path ::= [package-pattern '::']*
+package-pattern ::= package-name | '*' | '**' | glob-pattern
+package-name ::= unicode-identifier
+element-pattern ::= glob-pattern
+glob-pattern ::= /* glob syntax as described above */
+unicode-identifier ::= /* any valid Unicode identifier */
+----
+
+=== Package names containing colons
+
+If a package name contains single or double colons:
+
+* Single colons (`:`) in package names are preserved as-is
+* Double colons (`::`) in package names must be escaped as `\::`
+* Leading `::` for absolute paths cannot be escaped
+
+=== Resolution rules
+
+* Single element name or pattern matches in any package
+* Relative paths are resolved from current context
+* Absolute paths are resolved from model root
+* Path segments must match patterns exactly
+* Empty segments are invalid
+* Multiple matches are allowed with wildcards/patterns
+* Without wildcards/patterns, first match is used for multiple matches
+* Unicode normalization follows UML model rules
+
 
 == How to install
 
@@ -151,3 +258,4 @@ path.match?(["model", "std", "string"])   # => false
 
 These paths can be used to locate elements across UML model hierarchies, making
 it easier to reference and work with model elements programmatically.
+
