@@ -7,31 +7,294 @@ image:https://img.shields.io/gem/v/lutaml-path.svg["Gem Version", link="https://
 
 toc::[]
 
-== What is LutaML Path?
+== Introduction
 
-LutaML Path provides a parser for path expressions that reference elements
-within information models.
+"`LutaML Path`" is a query language for LutaML Models. It allows for referencing
+and locating elements within information models defined using the LutaML Model
+system.
 
-LutaML Path implements a path notation similar to the Object Constraint Language
-(OCL) to locate UML model elements across package hierarchies.
+There are two types of LutaML Path syntaxes that share a common syntax:
 
-This gem is specifically designed to work with OMG UML models and supports
-referencing any UML element including packages, classes, interfaces, properties,
-and operations.
-
-The path syntax is described below for UML.
+* Model definition query (e.g. LutaML Model and UML definitions) (see <<lutaml-path-models>>)
+* Instance data query (information model instances) (see <<lutaml-path-instance>>)
 
 
-== UML element path specification
+== Common syntax
+
+=== General
+
+The LutaML path syntax is designed to be concise and expressive. It supports
+both absolute and relative paths, wildcards, and pattern matching.
+
+The path syntax is inspired by the Object Constraint Language (OCL) and extends
+beyond it to provide a mechanism for uniquely identifying model elements within
+the LutaML Model hierarchy.
+
+LutaML Path fully supports Unicode characters in package and element names.
+
+
+=== Expression
+
+==== General
+
+An expression can be a single element, a hierarchy, or a pattern.
+
+The path syntax supports the following features:
+
+* Wildcard matching
+* Pattern matching
+* Path segments with a regular expression-like syntax
+
+In LutaML Models, models are typically referred using TitleCase and attributes
+in snake_case.
+
+
+
+==== Wildcard matching
+
+Wildcard characters are used to match multiple elements.
+
+The path syntax supports the following wildcards:
+
+Wildcard match character `*`::
+matches any sequence of characters. When used as double asterisks `**`, it
+matches any nested depth of the hierarchy.
++
+[example]
+====
+[source]
+----
+# Wildcard matching
+## Matches any class starting with "Base"
+Base*
+
+## Matches any class ending with "Model"
+*Model
+
+## Matches any class starting with "Base" in the "Core" package
+Core::Base*
+
+## Matches any class ending with "Model" in the "Core" package
+Core::*Model
+
+## Matches any class in the "Core" package
+Core::*
+----
+====
+
+Any match character `?`::
+matches any single character
++
+[example]
+====
+[source]
+----
+# Single character matching
+## Matches any class starting with "Bas" and one more character, such as "Base"
+Bas?
+
+## Matches any class ending with "Model" and one more character, such as "BaseModel"
+*Model?
+----
+====
+
+
+==== Pattern matching
+
+The path syntax supports several kinds of patterns. These patterns are used to
+match elements based on specific criteria. The patterns are similar to regular
+expressions but are more concise and easier to read.
+
+The path syntax is case-sensitive and follows the source model's character
+cases.
+
+Set match expression `[` character expression `]`::
+The delimiters of `[` and `]` are used to define a set of characters. The set
+can contain any characters, including Unicode characters.
+
+Character match expression `[abc]`:::
+matches any character in the set.
+
+Negative match expression `[!...]`:::
+matches any character not in the set.
+
+Range match expression `[a-z]`:::
+The `-` character is used to define a range of characters. It
+matches any character in the range according to Unicode code points.
+
+Alternatives match expression `{expression1,expression2}`::
+matches any of the comma-separated patterns
+
+[example]
+====
+[source]
+----
+# Pattern matching
+## Matches any class ending with "ase", such as "Base", "Case" but not "Vase"
+[BC]ase
+
+## Matches any class starting with "Base" or "Case"
+{Base,Case}
+
+## Matches any class starting with "Base" or "Case" and ending with "Radius"
+{Base,Case}*Radius
+
+# Range matching
+## Matches any class of "Vase" and "vase"
+[Vv]ase
+
+# Negative matching
+## Matches any class ending with "ase" but not "Vase" and "Case"
+[!CV]ase
+
+# Unicode matching
+## Matches any class starting with "建物"
+建物*
+
+## Matches exactly "ドア" or "窓"
+{ドア,窓}
+----
+====
+
+
+
+=== Path
+
+==== General
+
+A path is a sequence of path segments separated by hierarchy separators.
+
+A path segment is a single element or a pattern that matches a single element.
+
+----
+  ╔════════════════╗
+  ║      Path      ║
+  ║   (segments)   ║
+  ╚════╦══════╦════╝
+       │      │
+       ▼      ▼
+  ╔════════════════╗
+  ║  Path Segment  ║
+  ╚═══════╦════════╝
+          │
+          ▼
+  ╔════════════════╗
+  ║   Expression   ║
+  ╚════════════════╝
+----
+
+
+==== Hierarchy separators
+
+The hierarchy separators are used to separate path segments within a path:
+
+`::`:: for model definitions
+`.`:: for attributes and instance data.
+
+The separators can be escaped with a backslash inside an expression.
+Single colons (`:`) are not used as separators and behave as part of the
+segment.
+
+[example]
+====
+[source]
+----
+# Referencing the "Rectangle::Shape" object
+::Rectangle\::Shape
+
+# Accessing the "width.length" attribute of the "Rectangle" object
+::Rectangle.width\.length
+----
+====
+
+The leading hierarchy separator, indicating absolute paths, cannot be escaped.
+
+[example]
+====
+[source]
+----
+\::Rectangle::Shape # This is invalid
+
+\.width.length # This is invalid
+----
+====
+
+
+
+==== Absolute and relative paths
+
+The path syntax supports both absolute and relative paths:
+
+* Absolute paths start with `::` and begin at the model root
+* Relative paths start without `::` and are resolved from the current context
+
+The target element type may be a class, property, operation, or any other model
+element.
+
+The separator can be escaped with a backslash: `\::`, if the package name
+contains a double colon.
+
+[example]
+====
+[source]
+----
+# Absolute path
+## Locates a model called "Rectangle" in the "Shapes" package at root
+::Shapes::Rectangle
+
+## Locates an attribute called "width" in the "Rectangle" class at root
+::Shapes::Rectangle.width
+
+## Locates a model called "図形" in the "Geometry" package at root
+::Geometry::図形
+
+## Locates an attribute called "高" in the "図形" class
+::Geometry::図形.高
+
+# Relative path
+## Locates a model called "Rectangle" in the current package
+Shapes::Rectangle
+
+## Locates an attribute called "width" in the current class
+Shapes::Rectangle.width
+
+## Locates a model called "図形" under the "Geometry" model in the current model
+Geometry::図形
+
+## Locates an attribute called "高" in the "図形" model
+Geometry::図形.高
+----
+====
+
+
+
+[[lutaml-path-models]]
+== LutaML path for model definitions
 
 === Overview
+
+The LutaML path for model definition query syntax ("LutaML model path") is used
+to reference elements within model definitions. These paths are used to locate
+classes, properties, operations, and other model elements within the model
+hierarchy.
+
+While the LutaML path syntax is designed to work with LutaML Models, it can also
+be used with UML models.
+
+It implements a path notation similar to the Object Constraint Language
+(OCL) to locate UML model elements across package hierarchies.
+
+// This gem is specifically designed to work with OMG UML models and supports
+// referencing any UML element including packages, classes, interfaces, properties,
+// and operations.
 
 The UML element path specification extends the OCL 2.4 specification to provide
 a mechanism for uniquely identifying model elements (classes, interfaces,
 enumerations, etc.) within the UML package hierarchy. It provides both relative
 and absolute path references.
 
-=== Syntax
+
+=== Hierarchical paths
 
 An element path can be specified in these forms:
 
@@ -41,77 +304,35 @@ An element path can be specified in these forms:
 
 The absolute path variant starts with `::` to indicate the path begins at the model root.
 
-=== Unicode support
-
-Package and element names support full Unicode:
-
-* All Unicode letters and numbers are allowed
-* Names can contain any language characters including Japanese, Chinese, Korean etc.
-* Case sensitivity follows the source UML model
-* Pattern matching works with Unicode characters
-
-Examples:
-
 [source]
 ----
-// Japanese package and class names
+# Japanese package and class names
 建物::窓::ガラス
 ::建築モデル::建物::窓
 
-// Mixed language names
+# Mixed language names
 building::窓::Window
 geometry::図形::円
 
-// Patterns with Unicode
+# Patterns with Unicode
 建物::部品*
 *部::Base*
 ----
 
-=== Path wildcards
+=== Path segment patterns
 
-Segment wildcards match package hierarchy:
+Path segment wildcards can be used to match package hierarchy.
 
 * Single segment: `Package1::*::Element` matches Element in any subpackage of Package1
 * Multiple segments: `Package1::**::Element` matches Element in Package1 or any nested depth
 
-=== Name pattern wildcards
-
-Name patterns use glob syntax:
-
-* `*` - matches zero or more characters (including Unicode)
-* `?` - matches exactly one character (including Unicode)
-* `[abc]` - matches one character in the set
-* `[!abc]` - matches one character not in the set
-* `[a-z]` - matches one character in the range (ASCII only)
-* `{pat1,pat2}` - matches either pattern
-
-Examples:
-
-* `Base*` - matches names starting with "Base"
-* `*Model` - matches names ending with "Model"
-* `建物*` - matches names starting with "建物"
-* `{ドア,窓}` - matches exactly "ドア" or "窓"
-
-=== Grammar
-
 [source]
 ----
-path ::= ['::]' package-path element-pattern
-package-path ::= [package-pattern '::']*
-package-pattern ::= package-name | '*' | '**' | glob-pattern
-package-name ::= unicode-identifier
-element-pattern ::= glob-pattern
-glob-pattern ::= /* glob syntax as described above */
-unicode-identifier ::= /* any valid Unicode identifier */
+# Wildcard matching
+Package1::*::Element
+Package1::**::Element
 ----
 
-=== Package names containing colons
-
-If a package name contains single or double colons:
-
-* Single colons (`:`) in package names are preserved as-is
-* Double colons (`::`) in package names must be escaped as `\::`
-* Leading `::` for absolute paths cannot be escaped
 
 === Resolution rules
 
@@ -122,10 +343,260 @@ If a package name contains single or double colons:
 * Empty segments are invalid
 * Multiple matches are allowed with wildcards/patterns
 * Without wildcards/patterns, first match is used for multiple matches
-* Unicode normalization follows UML model rules
 
 
-== How to install
+[[lutaml-path-instance]]
+== LutaML path for instance data
+
+=== Overview
+
+The LutaML path for instance data query syntax ("LutaML instance path") is used
+to navigate and query data within model instances. These paths are used to
+access attributes, filter data, and navigate complex structures within model
+instances.
+
+Model instances are instances of data that conform to a model definition.
+
+The LutaML model data syntax uses dot notation and filters to navigate and query
+data within model instances.
+
+Model instances can be queried using path expressions to access attributes,
+filter data, and navigate complex structures.
+
+Model are typically referred using TitleCase and attributes in snake_case.
+
+An instance path expression when resolved provides two types of return values:
+
+* A single element (e.g. attribute value)
+* A collection of elements (e.g. filtered data)
+
+
+=== Hierarchical paths
+
+An instance path can be specified in these forms:
+
+* Collection of model instances: `{model_path}`
+* Attribute: `{class_path}.{attribute}`
+
+[example]
+====
+[source]
+----
+# Simple attribute access
+obj.title
+obj.edition.number
+----
+====
+
+=== Wildcard matching
+
+Wildcard symbols can be used to match characters in the path.
+
+These include:
+
+* path segments
+* attribute names
+* attribute values in conditions
+
+[example]
+====
+[source]
+----
+# Wildcard matching path segments
+obj.*.docidentifier[type!='ISBN']
+
+# Wildcard matching attribute names
+obj.contributor.*[type='author']
+
+# Wildcard in path segments
+## Matches all contributors with the name 'ISO'
+## e.g. matches obj.contributor.publisher.organization.name('ISO')
+obj.contributor.**[name='ISO']
+
+# Wildcard usage in conditions
+## Matches all authors from standards organizations
+obj.contributor[role.type='author' && organization.type='stand*']
+----
+====
+
+
+
+=== Filtering
+
+==== General
+
+Filters can be applied to model instances to query data based on specific
+criteria. Filters are enclosed in square brackets `[]` and can contain
+conditions.
+
+A filter "condition" is a comparison expression that evaluates to a boolean value.
+
+Syntax:
+
+[source]
+----
+attribute[condition]
+----
+
+The result of a filter is a collection of elements that match the condition.
+
+
+==== Conditions
+
+Conditions are used to filter data based on specific criteria.
+
+A filter "condition" is a comparison expression that evaluates to a boolean value.
+
+Conditions can include:
+
+* Value comparison: `property='value'`
+* Multiple conditions: `condition1 && condition2`
+* List membership: `property in ('value1', 'value2')`
+* Logical operators: `condition1 && (condition2 || condition3)`
+* Negation: `!condition`
+* Existence: `exists`
+
+Logical operators that can conjoin conditions:
+
+* Comparison: `=`, `!=`, `>`, `<`, `>=`, `<=`
+* Logical: `&&`, `||`, `!`
+* List membership: `in`
+
+
+[example]
+====
+[source]
+----
+# Condition for attribute value
+obj.contributor[role.type='publisher']
+# => Returns all contributors with role type 'publisher'
+
+# Multiple conditions
+obj.contributor[role.type='author' && organization.type='standards']
+# => Returns all authors from standards organizations
+
+# List membership
+obj.docidentifier[type in ('ISBN','ISSN','DOI')]
+# => Returns all document identifiers of type ISBN, ISSN, or DOI
+
+# Existence
+obj.contributor[exists]
+# => Returns all contributors
+
+# Negation
+obj.docidentifier[type!='ISBN']
+# => Returns all document identifiers not of type ISBN
+
+# Complex conditions
+obj.contributor[role.type='author' && organization.type='standards']
+# => Returns all authors from standards organizations
+----
+====
+
+==== Applying filters
+
+Filters are applied to model instances to query data based on specific criteria.
+
+Filters are enclosed in square brackets `[]` and can contain conditions.
+
+[example]
+====
+[source]
+----
+# Filter by date type
+## Steps:
+## 1. The first portion of the path navigates to the date element
+## 2. The filter condition is applied to the type attribute
+obj.date[type='updated']
+
+# Filter by document identifier type
+## Steps:
+## 1. The first portion of the path navigates to the docidentifier element
+## 2. The filter condition is applied to the type attribute
+obj.docidentifier[type!='ISBN']
+----
+====
+
+Filters can be chained to navigate complex structures and query data based on
+specific criteria.
+
+[example]
+====
+[source]
+----
+# Nested navigation with filtering
+## Filter by role type
+## Steps:
+## 1. The first portion of the path navigates to the contributor element
+## 2. The filter condition is applied to the role type attribute
+## 3. The last portion of the path navigates to the organization name attribute
+obj.contributor[role.type='publisher'].organization.name
+
+# Filter by multiple conditions
+## Filter by role type and organization type
+## Steps:
+## 1. The first portion of the path navigates to the contributor element
+## 2. The filter conditions are applied to the role type and organization type attributes
+## 3. The last portion of the path navigates to the organization name attribute
+obj.contributor[role.type='author' && organization.type='standards'].organization.name
+
+# Hierarchical filtering (nested conditions)
+## Filter by role type and organization type
+## Steps:
+## 1. The first portion of the path navigates to the contributor element
+## 2. The filter conditions are applied to the role type and organization type attributes
+## 3. The path navigates to the organization name attribute
+## 4. The filter condition is applied to the organization name attribute
+obj.contributor[role.type='author' && organization.type='standards'].organization[organization.name in ('ISO','IEC')].name
+----
+====
+
+==== Path expressions
+
+Path expressions are used to navigate through model attributes and filter data
+based on specific criteria.
+
+The path expressions are evaluated against the current model context.
+
+[example]
+====
+[source]
+----
+# Navigate through model attributes
+contributor.role.type
+organization.name
+
+# Filter by attribute values
+contributor[role.type = 'publisher'].organization.name
+date[type = 'updated']
+docidentifier[type != 'ISBN']
+
+# Multiple conditions
+contributor[role.type = 'author' and organization.type = 'standards']
+----
+====
+
+=== Resolution rules
+
+* Single element name or pattern matches in any package
+* Relative paths are resolved from current context
+* Absolute paths are resolved from model root
+* Path segments must match patterns exactly
+* Empty segments are invalid
+* Multiple matches are allowed with wildcards/patterns
+* Without wildcards/patterns, first match is used for multiple matches
+
+
+
+== Ruby API
+
+=== Introduction
+
+The LutaML Path gem provides a simple API for parsing and matching paths.
+
+WARNING: It currently only supports the model definition path syntax.
+
+=== How to install
 
 [source,ruby]
 ----
@@ -139,7 +610,9 @@ Or add this line to your application's Gemfile:
 gem 'lutaml-path'
 ----
 
-== Basic usage
+=== Basic usage
+
+The LutaML Path gem provides a simple API for parsing and matching paths.
 
 The path syntax follows UML namespace conventions using `::` as a separator:
 
@@ -147,29 +620,35 @@ The path syntax follows UML namespace conventions using `::` as a separator:
 ----
 require 'lutaml/path'
 
-# Simple element reference
+# Model definition path
+## Simple element reference
 path = Lutaml::Path.parse("Package::Class")
 
-# Absolute path (starts from root namespace)
+## Absolute path (starts from root namespace)
 path = Lutaml::Path.parse("::Root::Package::Class")
 
-# Path with wildcards
+## Path with wildcards
 path = Lutaml::Path.parse("Package::*::BaseClass*")
 ----
 
-== Working with patterns
+// TODO: enable
+// [source,ruby]
+// ----
+// # Model instance data path
+// ## Parse model data path
+// path = Lutaml::Path.parse("obj.contributor.organization.name")
 
-The parser supports several kinds of patterns:
+// ## Parse model data path with filter
+// path = Lutaml::Path.parse("obj.contributor[role.type='publisher']")
+// ----
 
-* `*` - matches any sequence of characters
-* `?` - matches any single character
-* `[abc]` - matches any character in the set
-* `{pattern1,pattern2}` - matches any of the comma-separated patterns
+=== Working with patterns
 
-Examples:
-
+[example]
+====
 [source,ruby]
 ----
+# Model location matching
 # Match any class starting with "Base"
 path = Lutaml::Path.parse("Base*")
 
@@ -179,8 +658,17 @@ path = Lutaml::Path.parse("Package::[A-Z]*::Interface")
 # Match multiple alternatives
 path = Lutaml::Path.parse("model::{Abstract,Base}Class")
 ----
+====
 
-== How to match paths
+// TODO: enable
+// [source,ruby]
+// ----
+// # Model data matching
+// path = Lutaml::Path.parse("contributor[role.type='publisher']")
+// path.match?(data)  # Matches against model instance data
+// ----
+
+=== How to match paths
 
 The parsed path can be used to match against actual element paths:
 
@@ -210,18 +698,6 @@ relative.match?(["model", "Class"])           # => true
 relative.match?(["root", "model", "Class"])   # => true
 ----
 
-== Path syntax reference
-
-The path expression grammar follows these rules:
-
-* Path segments are separated by `::`
-* The separator can be escaped with a backslash: `\::`
-* An absolute path starts with `::`
-* Each segment can contain:
-** Regular characters (including Unicode)
-** Wildcards (`*`, `?`)
-** Character classes (`[abc]`)
-** Alternatives (`{pattern1,pattern2}`)
 
 == Matching paths with escaped colons
 
@@ -236,7 +712,7 @@ path.match?(["model", "std::string"])     # => true
 path.match?(["model", "std", "string"])   # => false
 ----
 
-== Examples of UML element references
+=== Examples of UML element references
 
 [source,ruby]
 ----
@@ -258,4 +734,11 @@ path.match?(["model", "std", "string"])   # => false
 
 These paths can be used to locate elements across UML model hierarchies, making
 it easier to reference and work with model elements programmatically.
+
+== License
+
+Copyright Ribose.
+
+The `lutaml-path` gem is available as open source under the terms of the MIT
+License.
 
