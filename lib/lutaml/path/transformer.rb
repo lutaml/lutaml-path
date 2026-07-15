@@ -6,10 +6,8 @@ require "parslet"
 module Lutaml
   module Path
     class Transformer < Parslet::Transform
-      rule(content: simple(:content), is_pattern: simple(:is_pattern)) do |dict|
-        content = dict[:content].to_s
-        is_pattern = !dict[:is_pattern].nil?
-        PathSegment.new(content, is_pattern: is_pattern)
+      rule(content: simple(:content)) do |dict|
+        PathSegment.new(dict[:content].to_s)
       end
 
       rule(segment: subtree(:segment)) { segment }

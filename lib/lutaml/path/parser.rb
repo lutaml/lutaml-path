@@ -12,16 +12,14 @@ module Lutaml
       rule(:separator) { str("::") }
 
       # Character rules
-      rule(:glob_char) { match('[*?\[{]') }
       rule(:regular_char) do
         (separator.absent? >> str("\\").absent? >> any) |
           escaped_separator
       end
 
-      # Single segment can contain any regular chars or glob chars
+      # Single segment can contain any regular chars
       rule(:segment_content) do
-        (glob_char | regular_char).repeat(1).as(:content) >>
-          glob_char.present?.maybe.as(:is_pattern)
+        regular_char.repeat(1).as(:content)
       end
 
       rule(:segment) do
@@ -34,8 +32,8 @@ module Lutaml
 
       # Full path expression - either absolute or relative
       rule(:path_expr) do
-        ((separator.as(:absolute) >> segment.as(:first_segment) >> segments) |
-         (segment.as(:first_segment) >> segments))
+        (separator.as(:absolute) >> segment.as(:first_segment) >> segments) |
+          (segment.as(:first_segment) >> segments)
       end
 
       root(:path_expr)
