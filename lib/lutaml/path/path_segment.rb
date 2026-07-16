@@ -3,11 +3,13 @@
 module Lutaml
   module Path
     class PathSegment
-      attr_reader :name, :pattern
+      GLOB_CHARS = /[*?\[{]/
 
-      def initialize(name, is_pattern: false)
+      attr_reader :name
+
+      def initialize(name)
         @name = name.gsub('\::', "::")
-        @pattern = is_pattern
+        @pattern = @name.match?(GLOB_CHARS)
       end
 
       def pattern?
@@ -15,7 +17,7 @@ module Lutaml
       end
 
       def match?(segment)
-        return File.fnmatch(name, segment) if pattern?
+        return File.fnmatch(name, segment, File::FNM_EXTGLOB) if pattern?
 
         name == segment
       end
