@@ -16,6 +16,10 @@ module Lutaml
         @pattern
       end
 
+      def deep_wildcard?
+        name == "**"
+      end
+
       def match?(segment)
         return File.fnmatch(name, segment, File::FNM_EXTGLOB) if pattern?
 

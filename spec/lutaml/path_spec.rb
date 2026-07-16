@@ -58,6 +58,70 @@ RSpec.describe Lutaml::Path do
       expect(path.match?(%w[model OtherClass])).to be false
     end
 
+    it "matches a deep wildcard at any depth" do
+      path = described_class.parse("Pkg::**::Element")
+      expect(path.match?(%w[Pkg Element])).to be true
+      expect(path.match?(%w[Pkg a Element])).to be true
+      expect(path.match?(%w[Pkg a b Element])).to be true
+      expect(path.match?(%w[Other a Element])).to be false
+      expect(path.match?(%w[Pkg a b Other])).to be false
+    end
+
+    it "matches multiple deep wildcards" do
+      path = described_class.parse("Pkg::**::mid::**::End")
+      expect(path.match?(%w[Pkg a mid b End])).to be true
+      expect(path.match?(%w[Pkg mid End])).to be true
+      expect(path.match?(%w[Pkg mid Other])).to be false
+    end
+
+    it "matches a leading deep wildcard" do
+      path = described_class.parse("**::Element")
+      expect(path.match?(%w[Element])).to be true
+      expect(path.match?(%w[a b Element])).to be true
+      expect(path.match?(%w[a b Other])).to be false
+    end
+
+    it "matches a trailing deep wildcard" do
+      path = described_class.parse("Pkg::**")
+      expect(path.match?(%w[Pkg])).to be true
+      expect(path.match?(%w[Pkg a b])).to be true
+      expect(path.match?(%w[Other])).to be false
+    end
+
+    it "matches a bare deep wildcard against any depth" do
+      path = described_class.parse("**")
+      expect(path.match?([])).to be true
+      expect(path.match?(%w[a])).to be true
+      expect(path.match?(%w[a b c])).to be true
+    end
+
+    it "collapses adjacent deep wildcards" do
+      path = described_class.parse("Pkg::**::**::End")
+      expect(path.match?(%w[Pkg End])).to be true
+      expect(path.match?(%w[Pkg a b End])).to be true
+      expect(path.match?(%w[Pkg a b])).to be false
+      expect(path.match?(%w[Other End])).to be false
+    end
+
+    it "requires an absolute deep-wildcard path to consume the whole candidate" do
+      path = described_class.parse("::Pkg::**::End")
+      expect(path.match?(%w[Pkg End])).to be true
+      expect(path.match?(%w[Pkg a End])).to be true
+      expect(path.match?(%w[Pkg a End extra])).to be false
+    end
+
+    it "matches a relative deep-wildcard path as a prefix" do
+      path = described_class.parse("Pkg::**::Element")
+      expect(path.match?(%w[Pkg a Element extra])).to be true
+    end
+
+    it "treats a double-asterisk substring as a glob, not a deep wildcard" do
+      path = described_class.parse("pkg::a**b::x")
+      expect(path.segments.map(&:deep_wildcard?)).to eq([false, false, false])
+      expect(path.match?(%w[pkg aQQb x])).to be true
+      expect(path.match?(%w[pkg aQQb extra x])).to be false
+    end
+
     it "raises error on empty segments" do
       expect { described_class.parse("pkg::::element") }.to raise_error(described_class::ParseError)
     end
@@ -100,6 +164,20 @@ RSpec.describe Lutaml::Path::PathSegment do
     expect(described_class.new("[!CV]ase").match?("Base")).to be true
     expect(described_class.new("[!CV]ase").match?("Case")).to be false
   end
+
+  it "recognizes a deep wildcard" do
+    expect(described_class.new("**").deep_wildcard?).to be true
+    expect(described_class.new("*").deep_wildcard?).to be false
+    expect(described_class.new("a**b").deep_wildcard?).to be false
+    expect(described_class.new("Element").deep_wildcard?).to be false
+  end
+
+  it "matches a double-asterisk substring as an ordinary glob" do
+    segment = described_class.new("a**b")
+    expect(segment.match?("axyb")).to be true
+    expect(segment.match?("ab")).to be true
+    expect(segment.match?("zb")).to be false
+  end
 end
 
 RSpec.describe Lutaml::Path::ElementPath do
@@ -122,5 +200,20 @@ RSpec.describe Lutaml::Path::ElementPath do
 
     expect(path.match?(%w[pkg Element])).to be true
     expect(path.match?(%w[root pkg Element])).to be false
+  end
+
+  it "keeps single wildcard matching exactly one segment" do
+    path = Lutaml::Path.parse("pkg::*::Element")
+    expect(path.match?(%w[pkg sub Element])).to be true
+    expect(path.match?(%w[pkg Element])).to be false
+    expect(path.match?(%w[pkg a b Element])).to be false
+  end
+
+  it "matches deep patterns without exhausting the stack" do
+    pattern = (["a"] + (["**"] * 5000) + ["b"]).join("::")
+    path = Lutaml::Path.parse(pattern)
+
+    expect { path.match?(%w[a x y z b]) }.not_to raise_error
+    expect(path.match?(%w[a x y z b])).to be true
   end
 end
