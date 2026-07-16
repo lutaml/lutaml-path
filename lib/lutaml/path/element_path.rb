@@ -26,8 +26,9 @@ module Lutaml
 
       private
 
-      # Row for a fully-consumed pattern: absolute paths must have consumed the
-      # whole candidate; relative paths match on any remaining prefix.
+      # Row for a fully-consumed pattern: an absolute pattern must have consumed
+      # the whole candidate; a relative pattern matches a prefix, so any trailing
+      # candidate segments are allowed.
       def terminal_row(path_length)
         Array.new(path_length + 1) do |path_index|
           absolute? ? path_index == path_length : true

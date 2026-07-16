@@ -10,7 +10,7 @@ Style/StringLiteralsInInterpolation:
   EnforcedStyle: double_quotes
 
 # RSpec describe/context are DSL blocks that grow with the number of examples,
-# not long methods. Exempt them from the method-oriented length metric.
+# not overgrown logic. Exempt them from the block-length metric.
 Metrics/BlockLength:
   AllowedMethods:
     - describe
