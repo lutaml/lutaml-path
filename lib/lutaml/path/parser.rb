@@ -36,7 +36,15 @@ module Lutaml
           (segment.as(:first_segment) >> segments)
       end
 
-      root(:path_expr)
+      # The leading separator cannot be escaped (README: "the leading hierarchy
+      # separator ... cannot be escaped"). Guard position 0 of the input; a real
+      # leading `::` is fine, so absolute paths and later-segment escapes are
+      # unaffected.
+      rule(:path) do
+        escaped_separator.absent? >> path_expr
+      end
+
+      root(:path)
     end
   end
 end

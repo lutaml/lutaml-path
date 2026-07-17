@@ -34,6 +34,22 @@ RSpec.describe Lutaml::Path do
       expect(path.segments.map(&:pattern?)).to eq([false, false])
     end
 
+    it "rejects a leading escaped separator" do
+      expect { described_class.parse("\\::Rectangle") }.to raise_error(described_class::ParseError)
+      expect { described_class.parse("\\::Rectangle::Shape") }.to raise_error(described_class::ParseError)
+    end
+
+    it "allows an escaped separator in a later segment" do
+      path = described_class.parse("model::\\::odd")
+      expect(path.segments.map(&:name)).to eq(["model", "::odd"])
+    end
+
+    it "allows an escaped separator after a real leading separator" do
+      path = described_class.parse("::\\::odd")
+      expect(path.absolute?).to be true
+      expect(path.segments.map(&:name)).to eq(["::odd"])
+    end
+
     it "handles Unicode characters" do
       path = described_class.parse("建物::窓::ガラス")
       expect(path.segments.map(&:name)).to eq(%w[建物 窓 ガラス])
