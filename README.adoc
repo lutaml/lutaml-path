@@ -474,9 +474,16 @@ So `a in ('x','y') && b = 'z'` groups as `(a in ('x','y')) && (b = 'z')`, and
 Comparison values are single-quoted strings (`'author'`) or bare numbers
 (`30`). Use `\'` for a literal quote inside a value.
 
-Within a segment, `[` opens a filter when the bracket group ends the segment
-and its body contains a condition operator. Otherwise `[` is an ordinary
-wildcard character set, so `Class[A-Z]` remains a pattern.
+Within a segment, `[` opens a filter only when all three hold:
+
+. it is not the segment's first character;
+. the bracket group ends the segment; and
+. its body contains a condition operator.
+
+Otherwise `[` is an ordinary wildcard character set. So `Class[A-Z]` remains a
+pattern because its body has no operator, and `[exists]` remains a pattern
+because its `[` is the segment's first character, while `contributor[exists]`
+is a filter.
 
 
 [example]
