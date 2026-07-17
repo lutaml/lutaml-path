@@ -1,17 +1,30 @@
 # frozen_string_literal: true
 
+require_relative "abstract_path"
+
 module Lutaml
   module Path
-    class ElementPath
-      attr_reader :segments, :absolute
+    class ElementPath < AbstractPath
+      attr_reader :segments
 
       def initialize(segments, absolute: false)
+        super(absolute: absolute)
         @segments = Array(segments)
-        @absolute = absolute
       end
 
-      def absolute?
-        @absolute
+      def to_s
+        "#{absolute? ? "::" : ""}#{segments.join("::")}"
+      end
+
+      def ==(other)
+        other.is_a?(self.class) &&
+          absolute? == other.absolute? &&
+          segments == other.segments
+      end
+      alias eql? ==
+
+      def hash
+        [self.class, absolute?, segments].hash
       end
 
       def match?(path_segments)

@@ -462,6 +462,17 @@ Logical operators that can conjoin conditions:
 * Logical: `&&`, `||`, `!`
 * List membership: `in`
 
+Operator precedence, from tightest to loosest: `!`, then comparison
+(`=`, `!=`, `>`, `<`, `>=`, `<=`), then `&&`, then `||`. Use parentheses to
+override it.
+
+Comparison values are single-quoted strings (`'author'`) or bare numbers
+(`30`). Use `\'` for a literal quote inside a value.
+
+Within a segment, `[` opens a filter when the bracket group ends the segment
+and its body contains a condition operator. Otherwise `[` is an ordinary
+wildcard character set, so `Class[A-Z]` remains a pattern.
+
 
 [example]
 ====
@@ -594,7 +605,9 @@ contributor[role.type = 'author' and organization.type = 'standards']
 
 The LutaML Path gem provides a simple API for parsing and matching paths.
 
-WARNING: It currently only supports the model definition path syntax.
+WARNING: Instance data paths are parsed but not resolved. `Lutaml::Path.parse`
+returns an `InstancePath` carrying the parsed structure; evaluating one against
+model instance data is not yet supported.
 
 === How to install
 
@@ -631,16 +644,15 @@ path = Lutaml::Path.parse("::Root::Package::Class")
 path = Lutaml::Path.parse("Package::*::BaseClass*")
 ----
 
-// TODO: enable
-// [source,ruby]
-// ----
-// # Model instance data path
-// ## Parse model data path
-// path = Lutaml::Path.parse("obj.contributor.organization.name")
+[source,ruby]
+----
+# Model instance data path
+## Parse model data path
+path = Lutaml::Path.parse("obj.contributor.organization.name")
 
-// ## Parse model data path with filter
-// path = Lutaml::Path.parse("obj.contributor[role.type='publisher']")
-// ----
+## Parse model data path with filter
+path = Lutaml::Path.parse("obj.contributor[role.type='publisher']")
+----
 
 === Working with patterns
 
