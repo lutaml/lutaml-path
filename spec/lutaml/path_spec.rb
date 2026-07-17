@@ -446,6 +446,23 @@ RSpec.describe Lutaml::Path do
       end
     end
 
+    it "binds in and exists at the predicate level, like comparison" do
+      # The README documents these exact groupings; pin them so the docs
+      # cannot drift from the parser.
+      membership = described_class.parse("obj.f[a in ('x','y') && b = 'z']").conditions.first
+      expect(membership.operator).to eq("&&")
+      expect(membership.left).to be_a(Lutaml::Path::Condition::Membership)
+      expect(membership.right).to be_a(Lutaml::Path::Condition::Comparison)
+
+      existence = described_class.parse("obj.f[exists && a = '1']").conditions.first
+      expect(existence.left).to be_a(Lutaml::Path::Condition::Existence)
+
+      # a = 'x' || b = 'y' && c = 'z'  =>  (a='x') || ((b='y') && (c='z'))
+      mixed = described_class.parse("obj.f[a = 'x' || b = 'y' && c = 'z']").conditions.first
+      expect(mixed.operator).to eq("||")
+      expect(mixed.right.operator).to eq("&&")
+    end
+
     it "raises error on empty segments" do
       expect { described_class.parse("pkg::::element") }.to raise_error(described_class::ParseError)
     end

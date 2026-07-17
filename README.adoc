@@ -462,9 +462,14 @@ Logical operators that can conjoin conditions:
 * Logical: `&&`, `||`, `!`
 * List membership: `in`
 
-Operator precedence, from tightest to loosest: `!`, then comparison
-(`=`, `!=`, `>`, `<`, `>=`, `<=`), then `&&`, then `||`. Use parentheses to
-override it.
+Operator precedence, from tightest to loosest: `!`, then the comparison,
+membership and existence predicates (`=`, `!=`, `>`, `<`, `>=`, `<=`, `in`,
+`exists`), then `&&`, then `||`. Use parentheses to override it.
+
+So `a in ('x','y') && b = 'z'` groups as `(a in ('x','y')) && (b = 'z')`, and
+`a = 'x' || b = 'y' && c = 'z'` groups as `(a = 'x') || ((b = 'y') && (c = 'z'))`.
+
+`and` is accepted as an alias for `&&`.
 
 Comparison values are single-quoted strings (`'author'`) or bare numbers
 (`30`). Use `\'` for a literal quote inside a value.
