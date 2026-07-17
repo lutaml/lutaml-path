@@ -419,6 +419,33 @@ RSpec.describe Lutaml::Path do
         .to eq(%w[android])
     end
 
+    it "escapes the escape character, not just the delimiter" do
+      # CodeQL: incomplete string escaping. Escaping only the delimiter leaves
+      # a trailing backslash eating the closing quote ('abc\') and a name
+      # ending in a backslash collapsing two names into one (a\.b).
+      backslash = "\\"
+      {
+        "abc#{backslash}" => "value ending in a backslash",
+        "a#{backslash}b" => "value containing a backslash",
+        "a#{backslash}'b" => "backslash then quote",
+        "a#{backslash}*b" => "backslash-star stays a literal for fnmatch"
+      }.each do |source, why|
+        value = Lutaml::Path::Condition::Value.new(source, :string)
+        path = described_class.parse("obj.x[a=#{value}]")
+        expect(path.conditions.first.rhs.source).to eq(source), "failed: #{why}"
+      end
+
+      {
+        ["a#{backslash}", "b"] => "first name ends in a backslash",
+        ["a#{backslash}b"] => "name contains a backslash",
+        ["a.b", "c#{backslash}"] => "escaped dot and trailing backslash"
+      }.each do |names, why|
+        ref = Lutaml::Path::Condition::AttributeRef.new(names)
+        path = described_class.parse("obj.x[#{ref}='z']")
+        expect(path.conditions.first.lhs.names).to eq(names), "failed: #{why}"
+      end
+    end
+
     it "raises error on empty segments" do
       expect { described_class.parse("pkg::::element") }.to raise_error(described_class::ParseError)
     end

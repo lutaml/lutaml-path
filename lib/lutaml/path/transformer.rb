@@ -7,15 +7,21 @@ module Lutaml
   module Path
     class Transformer < Parslet::Transform
       # --- condition AST ----------------------------------------------------
-      # Split on UNESCAPED dots only, then unescape: "a\\.b" is one attribute
-      # named "a.b", not the two names ["a\\", "b"].
+      # Tokenise into names rather than splitting on a naive lookbehind: a name
+      # may itself end in an escaped backslash, so "a\\\\.b" is the two names
+      # ["a\\", "b"] while "a\\.b" is the single name "a.b". Each token is a run
+      # of escaped pairs and ordinary characters; the dots between them separate.
       rule(attref: simple(:a)) do
-        Condition::AttributeRef.new(a.to_s.split(/(?<!\\)\./).map { |n| n.gsub('\.', ".") })
+        names = a.to_s.scan(/(?:\\.|[^.\\])+/)
+        Condition::AttributeRef.new(names.map { |n| n.gsub(/\\(.)/) { ::Regexp.last_match(1) } })
       end
       # An empty quoted value ('') makes Parslet's repeat yield [] rather than a
       # slice, so `simple` would never match and the node would stay raw.
       rule(string: subtree(:s)) do
-        Condition::Value.new(s.is_a?(Array) ? "" : s.to_s.gsub("\\'", "'"), :string)
+        raw = s.is_a?(Array) ? "" : s.to_s
+        # One pass, so "\\\\'" unescapes to a backslash followed by a quote
+        # rather than being double-unescaped by two independent gsubs.
+        Condition::Value.new(raw.gsub(/\\(['\\])/) { ::Regexp.last_match(1) }, :string)
       end
       rule(number: simple(:n)) { Condition::Value.new(n.to_s, :number) }
       rule(exists: simple(:_)) { Condition::Existence.new }

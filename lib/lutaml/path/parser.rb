@@ -23,11 +23,13 @@ module Lutaml
 
       # --- filter conditions ------------------------------------------------
       # Single quotes only: every value in the README is single-quoted. "\'"
-      # escapes a quote. Other backslashes are LEFT INTACT so fnmatch's own
-      # escaper receives them and a literal "*" stays expressible.
+      # escapes a quote and "\\" escapes a backslash -- both are needed, or a
+      # value ending in a backslash renders as 'abc\' and its trailing escape
+      # eats the closing quote. Any OTHER backslash is left intact so a future
+      # evaluator's fnmatch still receives "\*" as a literal asterisk.
       rule(:quoted_string) do
         str("'") >> (
-          (str("\\") >> str("'")) | (str("'").absent? >> any)
+          (str("\\") >> (str("'") | str("\\"))) | (str("'").absent? >> any)
         ).repeat.as(:string) >> str("'")
       end
 

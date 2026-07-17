@@ -19,10 +19,12 @@ module Lutaml
       AttributeRef = Struct.new(:names) do
         def initialize(*) = super.tap { names.each(&:freeze).freeze and freeze }
 
-        # Re-escapes the dots the transformer unescaped, so a name containing
-        # one round-trips: ["a.b"] must render as "a\\.b", not "a.b" (which
-        # re-parses as the two names ["a", "b"]).
-        def to_s = names.map { |n| n.gsub(".") { "\\." } }.join(".")
+        # Re-escapes BOTH the dot and the backslash the transformer unescaped.
+        # Escaping only the dot is incomplete: a name ending in a backslash
+        # would render as "a\.b" and re-parse as the single name "a.b".
+        def to_s
+          names.map { |n| n.gsub(/([\\.])/) { "\\#{::Regexp.last_match(1)}" } }.join(".")
+        end
       end
 
       # A right-hand literal. `source` is the unescaped lexeme and is never
@@ -35,11 +37,14 @@ module Lutaml
           type == :string && source.match?(PathSegment::GLOB_CHARS)
         end
 
-        # Re-escapes the quote the transformer unescaped, so a value containing
-        # one round-trips: "O'Reilly" must render as 'O\'Reilly', not as
-        # 'O'Reilly' (which fails to re-parse).
+        # Re-escapes BOTH the quote and the backslash the transformer
+        # unescaped. Escaping only the quote is incomplete: a value ending in a
+        # backslash would render as 'abc\' and its trailing escape would eat
+        # the closing quote.
         def to_s
-          type == :number ? source : "'#{source.gsub("'") { "\\'" }}'"
+          return source if type == :number
+
+          "'#{source.gsub(/(['\\])/) { "\\#{::Regexp.last_match(1)}" }}'"
         end
       end
 
