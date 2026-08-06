@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "abstract_path"
+require_relative "errors"
 
 module Lutaml
   module Path
@@ -28,7 +29,7 @@ module Lutaml
       end
 
       def match?(_path_segments)
-        raise NotImplementedError,
+        raise ResolutionError,
               "instance paths are parsed but not resolved: #{self}. " \
               "If you meant a literal dot in an element name, escape it: a\\.b"
       end

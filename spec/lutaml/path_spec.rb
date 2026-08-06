@@ -243,7 +243,8 @@ RSpec.describe Lutaml::Path do
       path = described_class.parse("pkg::Class[exists]")
       expect(path).to be_a(Lutaml::Path::InstancePath)
       expect(path.conditions).to eq([Lutaml::Path::Condition::Existence.new])
-      expect { path.match?(%w[pkg Classe]) }.to raise_error(NotImplementedError)
+      expect { path.match?(%w[pkg Classe]) }
+        .to raise_error(Lutaml::Path::ResolutionError)
     end
 
     it "accepts the chained example from the README" do
@@ -683,9 +684,22 @@ RSpec.describe Lutaml::Path::InstancePath do
     expect(path.steps.map(&:name)).to eq(%w[Shapes Rectangle width])
   end
 
-  it "raises a scoped NotImplementedError from match?" do
+  it "raises a scoped ResolutionError from match?" do
     path = described_class.new(base_steps: [step("obj")], attribute_steps: [step("title")])
     expect { path.match?(%w[obj title]) }
-      .to raise_error(NotImplementedError, /parsed but not resolved/)
+      .to raise_error(Lutaml::Path::ResolutionError, /parsed but not resolved/)
+  end
+
+  # ResolutionError descends from StandardError, so a caller guarding a
+  # mixed batch of paths degrades instead of crashing. NotImplementedError
+  # is a ScriptError and would escape this rescue.
+  it "is catchable by a bare rescue, unlike NotImplementedError" do
+    path = described_class.new(base_steps: [step("obj")], attribute_steps: [step("title")])
+    caught = begin
+      path.match?(%w[obj title])
+    rescue StandardError
+      :rescued
+    end
+    expect(caught).to eq(:rescued)
   end
 end

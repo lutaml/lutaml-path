@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require_relative "path_segment"
+
 module Lutaml
   module Path
     # The filter-condition AST.
@@ -62,10 +64,21 @@ module Lutaml
         def to_s = "#{lhs} in (#{literals.join(",")})"
       end
 
-      Existence = Struct.new do
-        def initialize(*) = super.tap { freeze }
+      # `exists` carries no operand, so there is no member to declare. Written
+      # as a plain class rather than a zero-member Struct, which Ruby permits
+      # only from 3.3 while this gem supports >= 3.0.
+      class Existence
+        def initialize = freeze
 
         def to_s = "exists"
+
+        # instance_of?, not is_a?: exact-class equality is what the Struct gave,
+        # and hash is keyed on the class, so is_a? would make a subclass compare
+        # asymmetrically against a differing hash.
+        def ==(other) = other.instance_of?(self.class)
+        alias eql? ==
+
+        def hash = self.class.hash
       end
 
       # && and || are structurally identical, so one type carries both.

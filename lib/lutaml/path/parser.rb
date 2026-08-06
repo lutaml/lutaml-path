@@ -42,9 +42,16 @@ module Lutaml
       end
 
       # Maximal munch: "!=" before "!", ">=" before ">".
-      rule(:cmp_op) do
-        (str("!=") | str(">=") | str("<=") | str("=") | str("<") | str(">")).as(:op)
+      #
+      # Defined once and shared with sniff_op. The sniff exists so a typo'd
+      # filter fails loudly rather than degrading to a character set; an
+      # operator added here but forgotten there would produce exactly the
+      # silent degradation the sniff was built to prevent.
+      rule(:cmp_lexeme) do
+        str("!=") | str(">=") | str("<=") | str("=") | str("<") | str(">")
       end
+
+      rule(:cmp_op) { cmp_lexeme.as(:op) }
 
       # Like `and`, `exists` needs a token boundary: without it
       # "existsand b='2'" silently parses as `(exists and b='2')`.
@@ -108,10 +115,14 @@ module Lutaml
       # "[standard]" on "and", "[coexists]" on "exists".
       rule(:sniff_word) { ident_char.repeat(1) }
       rule(:sniff_atom) { quoted_string | sniff_word | (str("]").absent? >> any) }
+      # Comparisons and the and-family reuse the grammar's own rules, so they
+      # cannot drift out of sync. "||" is one fixed token. "in" and "exists"
+      # stay spelled out: the grammar bounds "in" by the "(" that must follow
+      # it rather than by a character lookahead, and `existence` captures the
+      # word it matches, so neither reads back cleanly as a bare matcher.
       rule(:sniff_op) do
-        str("!=") | str(">=") | str("<=") | str("=") | str("<") | str(">") |
-          str("&&") | str("||") |
-          ((str("and") | str("in") | str("exists")) >> ident_char.absent?)
+        cmp_lexeme | and_op | str("||") |
+          ((str("in") | str("exists")) >> ident_char.absent?)
       end
 
       rule(:filter_ahead) do

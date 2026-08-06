@@ -2,11 +2,10 @@
 
 require "parslet"
 require_relative "path/version"
+require_relative "path/errors"
 require_relative "path/parser"
 require_relative "path/transformer"
 require_relative "path/path_segment"
-# condition must follow path_segment: Condition::Value#pattern? reads
-# PathSegment::GLOB_CHARS.
 require_relative "path/condition"
 require_relative "path/step"
 # abstract_path must precede element_path: `class ElementPath < AbstractPath`
@@ -17,8 +16,6 @@ require_relative "path/instance_path"
 
 module Lutaml
   module Path
-    class ParseError < StandardError; end
-
     def self.parse(input)
       tree = Parser.new.parse(input)
       Transformer.new.apply(tree)
