@@ -36,7 +36,7 @@ module Lutaml
       end
 
       def ==(other)
-        other.is_a?(self.class) &&
+        other.instance_of?(self.class) &&
           segment == other.segment &&
           condition == other.condition
       end

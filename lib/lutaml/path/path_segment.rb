@@ -38,7 +38,7 @@ module Lutaml
       end
 
       def ==(other)
-        other.is_a?(self.class) && name == other.name
+        other.instance_of?(self.class) && name == other.name
       end
       alias eql? ==
 

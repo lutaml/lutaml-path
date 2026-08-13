@@ -703,3 +703,31 @@ RSpec.describe Lutaml::Path::InstancePath do
     expect(caught).to eq(:rescued)
   end
 end
+
+# Equality is exact-class throughout the path AST, matching
+# Condition::Existence. `hash` is keyed on self.class, so an is_a? test would
+# let a base instance equal a subclass instance whose hash differs: eql? would
+# report true while `{ base => 1 }[subclass]` returned nil.
+RSpec.describe "path AST equality" do
+  [
+    [Lutaml::Path::PathSegment, ->(k) { k.new("a") }],
+    [Lutaml::Path::Step, ->(k) { k.new(Lutaml::Path::PathSegment.new("a")) }],
+    [Lutaml::Path::ElementPath, ->(k) { k.new([Lutaml::Path::PathSegment.new("a")]) }],
+    [Lutaml::Path::InstancePath,
+     ->(k) { k.new(base_steps: [Lutaml::Path::Step.new(Lutaml::Path::PathSegment.new("a"))]) }]
+  ].each do |klass, build|
+    it "compares #{klass} by exact class, keeping eql? symmetric and hash-consistent" do
+      base = build.call(klass)
+      twin = build.call(klass)
+      sub = build.call(Class.new(klass))
+
+      expect(base).to eq(twin)
+      expect(base.hash).to eq(twin.hash)
+      expect({ base => 1 }[twin]).to eq(1)
+
+      expect(base).not_to eq(sub)
+      expect(sub).not_to eq(base)
+      expect({ base => 1 }[sub]).to be_nil
+    end
+  end
+end

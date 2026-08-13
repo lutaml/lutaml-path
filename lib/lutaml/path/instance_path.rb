@@ -40,7 +40,7 @@ module Lutaml
       end
 
       def ==(other)
-        other.is_a?(self.class) &&
+        other.instance_of?(self.class) &&
           absolute? == other.absolute? &&
           base_steps == other.base_steps &&
           attribute_steps == other.attribute_steps
