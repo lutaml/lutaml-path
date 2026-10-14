@@ -12,10 +12,4 @@ gem "rubocop-performance", require: false
 gem "rubocop-rake", require: false
 gem "rubocop-rspec", require: false
 
-# The resolution specs round-trip through lutaml-model, whose moxml
-# layer needs a concrete adapter on every CI platform.
-gem "nokogiri", require: false
 
-# The resolution specs round-trip through lutaml-model, whose moxml
-# layer needs a concrete adapter on every CI platform.
-gem "nokogiri", require: false
