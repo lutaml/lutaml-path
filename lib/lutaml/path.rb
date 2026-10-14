@@ -40,7 +40,7 @@ module Lutaml
     def self.parse_instance(input)
       tree = Parser.new.parse(input)
       Transformer.new.apply(tree)
-    rescue Parslet::ParseFailed => e
+    rescue Parsanol::ParseFailed => e
       raise ParseError, e.message
     rescue SystemStackError
       raise ParseError, "expression nests too deeply to parse"

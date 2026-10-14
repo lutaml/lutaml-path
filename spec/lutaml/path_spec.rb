@@ -5,6 +5,26 @@ require "open3"
 require "rbconfig"
 
 RSpec.describe Lutaml::Path do
+  describe ".parse_instance" do
+    it "preserves parsed model and instance path shapes" do
+      %w[title contributor.role.type contributor[exists]].each do |input|
+        expect(described_class.parse_instance(input)).to eq(described_class.parse(input))
+      end
+    end
+
+    it "normalizes malformed instance path failures" do
+      expect { described_class.parse_instance("contributor[type=]") }
+        .to raise_error(described_class::ParseError)
+    end
+  end
+
+  describe ".resolve" do
+    it "normalizes malformed path failures before resolving" do
+      expect { described_class.resolve({}, "contributor[type=]") }
+        .to raise_error(described_class::ParseError)
+    end
+  end
+
   describe ".parse" do
     it "uses Parsanol parser and transformer classes" do
       expect(described_class::Parser.superclass).to eq(Parsanol::Parser)
