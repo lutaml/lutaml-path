@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "open3"
+require "rbconfig"
 
 RSpec.describe Lutaml::Path do
   describe ".parse" do
@@ -14,6 +16,47 @@ RSpec.describe Lutaml::Path do
 
       expect(described_class.parse("obj.x[exists]").conditions.first)
         .to eq(described_class::Condition::Existence.new)
+    end
+
+    it "preserves the parser arity and forwards prefix options" do
+      parser = described_class::Parser.new
+
+      expect(parser.method(:parse).arity).to eq(-2)
+      expect(parser.parse("obj.", { prefix: true })[:first_segment][:segment][:content].to_s)
+        .to eq("obj")
+      expect(parser.parse("obj.", prefix: true)[:first_segment][:segment][:content].to_s)
+        .to eq("obj")
+    end
+
+    it "keeps direct parser nesting catchable even with explicit native requests" do
+      program = <<~'RUBY'
+        require "lutaml/path"
+        input = "obj.x[#{"(" * ARGV[0].to_i}exists#{")" * ARGV[0].to_i}]"
+        parser = Lutaml::Path::Parser.new
+        begin
+          tree = case ARGV[1]
+                 when "symbol" then parser.parse(input, :native)
+                 when "hash" then parser.parse(input, { mode: :native })
+                 when "keyword" then parser.parse(input, mode: :native)
+                 else parser.parse(input)
+                 end
+          condition = tree.fetch(:attrs).first.fetch(:segment).fetch(:condition)
+          condition = condition.fetch(:binary).fetch(:left) while condition.key?(:binary)
+          puts condition.fetch(:exists).to_s
+        rescue Lutaml::Path::ParseError => e
+          puts e.message
+        end
+      RUBY
+      library = File.expand_path("../../lib", __dir__)
+
+      [200, 500, 2000].product(%w[default symbol hash keyword]).each do |depth, mode|
+        output, error, status = Open3.capture3(RbConfig.ruby, "-I", library,
+                                               "-e", program, depth.to_s, mode)
+        expect(status.success?).to be(true), error
+        expect(output.strip).to satisfy do |result|
+          ["exists", "expression nests too deeply to parse"].include?(result)
+        end
+      end
     end
 
     it "translates the actual Parsanol failure without losing its message" do

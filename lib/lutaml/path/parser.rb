@@ -2,10 +2,19 @@
 
 # lib/lutaml/path/parser.rb
 require "parsanol"
+require_relative "errors"
 
 module Lutaml
   module Path
     class Parser < Parsanol::Parser
+      def parse(input, mode_or_opts = {}, **kwargs)
+        options = mode_or_opts.is_a?(Hash) ? mode_or_opts : {}
+        # Keep recursive grammar failures catchable on the Ruby engine.
+        super(input, options.merge(kwargs).merge(mode: :ruby))
+      rescue SystemStackError
+        raise ParseError, "expression nests too deeply to parse"
+      end
+
       rule(:sp) { match('\s').repeat }
       rule(:sp?) { sp.maybe }
 

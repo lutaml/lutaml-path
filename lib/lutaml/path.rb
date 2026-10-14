@@ -18,16 +18,12 @@ require_relative "path/resolver"
 module Lutaml
   module Path
     def self.parse(input)
-      # Keep recursive grammar failures catchable on the Ruby engine.
-      tree = Parser.new.parse(input, mode: :ruby)
+      tree = Parser.new.parse(input)
       Transformer.new.apply(tree)
     rescue Parsanol::ParseFailed => e
       raise ParseError, e.message
     rescue SystemStackError
-      # The condition grammar recurses through group/not/and/or, so an input
-      # nested deeply enough (~200 parentheses) exhausts the stack. That is a
-      # property of the input, not a bug in the caller: parse must only ever
-      # raise ParseError.
+      # Transforming deeply nested conditions can also exhaust the stack.
       raise ParseError, "expression nests too deeply to parse"
     end
 
