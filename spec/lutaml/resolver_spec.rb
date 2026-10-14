@@ -1,7 +1,19 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "lutaml/model"
+
+# The resolution specs exercise real lutaml-model instances. The gem
+# works without lutaml-model loaded (the resolver's model branch is
+# defined?-guarded), so when the dependency cannot load — an adapter
+# gem missing on an exotic platform, say — the suite skips instead of
+# failing at file load.
+begin
+  require "lutaml/model"
+  LUTAML_MODEL_AVAILABLE = true
+rescue LoadError, StandardError
+  LUTAML_MODEL_AVAILABLE = false
+end
+
 
 # Conformance corpus for RS 3002 "LutaML path for instance data",
 # resolved against real lutaml-model instances shaped like the
@@ -11,6 +23,9 @@ require "lutaml/model"
 # (contributor / organization / role / docidentifier); it is the
 # conformance corpus, not incidental setup.
 RSpec.describe "Lutaml::Path.resolve over lutaml-model instances" do
+  before do
+    skip "lutaml-model is not loadable in this bundle" unless LUTAML_MODEL_AVAILABLE
+  end
   let(:role_class) do
     klass = Class.new(Lutaml::Model::Serializable) do
       attribute :type, :string
