@@ -14,7 +14,6 @@ rescue LoadError, StandardError
   LUTAML_MODEL_AVAILABLE = false
 end
 
-
 # Conformance corpus for RS 3002 "LutaML path for instance data",
 # resolved against real lutaml-model instances shaped like the
 # specification's own examples (contributor / organization / role /
