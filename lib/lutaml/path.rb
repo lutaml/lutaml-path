@@ -13,6 +13,7 @@ require_relative "path/step"
 require_relative "path/abstract_path"
 require_relative "path/element_path"
 require_relative "path/instance_path"
+require_relative "path/resolver"
 
 module Lutaml
   module Path
@@ -26,6 +27,25 @@ module Lutaml
       # nested deeply enough (~200 parentheses) exhausts the stack. That is a
       # property of the input, not a bug in the caller: parse must only ever
       # raise ParseError.
+      raise ParseError, "expression nests too deeply to parse"
+    end
+
+    # Resolves an instance data path against model instance data: a
+    # lutaml-model Serializable instance, a hash, or collections
+    # thereof. The path may be a parsed InstancePath or an instance
+    # path string.
+    def self.resolve(root, path)
+      path = parse_instance(path) if path.is_a?(::String)
+      Resolver.resolve(root, path)
+    end
+
+    # Parses an input explicitly as an instance data path.
+    def self.parse_instance(input)
+      tree = Parser.new.parse(input)
+      Transformer.new.apply(tree)
+    rescue Parslet::ParseFailed => e
+      raise ParseError, e.message
+    rescue SystemStackError
       raise ParseError, "expression nests too deeply to parse"
     end
   end
