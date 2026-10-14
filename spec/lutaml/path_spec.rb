@@ -59,6 +59,13 @@ RSpec.describe Lutaml::Path do
       end
     end
 
+    it "normalizes direct parser stack exhaustion" do
+      input = "obj.x[#{"(" * 2000}exists#{")" * 2000}]"
+
+      expect { described_class::Parser.new.parse(input) }
+        .to raise_error(described_class::ParseError, "expression nests too deeply to parse")
+    end
+
     it "translates the actual Parsanol failure without losing its message" do
       input = "obj.x[a=]"
       failure = begin
