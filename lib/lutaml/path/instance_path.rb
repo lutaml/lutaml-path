@@ -34,6 +34,14 @@ module Lutaml
               "If you meant a literal dot in an element name, escape it: a\\.b"
       end
 
+      # Resolves this path against model instance data: a
+      # lutaml-model Serializable instance, a hash, or collections
+      # thereof. Plain single-segment paths resolve to a single value;
+      # filters, wildcards, and collections return arrays.
+      def resolve(root)
+        Resolver.resolve(root, self)
+      end
+
       def to_s
         "#{absolute? ? "::" : ""}#{base_steps.join("::")}" \
           "#{attribute_steps.map { |s| ".#{s}" }.join}"
