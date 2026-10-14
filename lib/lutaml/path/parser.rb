@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 # lib/lutaml/path/parser.rb
-require "parslet"
+require "parsanol"
 
 module Lutaml
   module Path
-    class Parser < Parslet::Parser
+    class Parser < Parsanol::Parser
       rule(:sp) { match('\s').repeat }
       rule(:sp?) { sp.maybe }
 
@@ -88,14 +88,16 @@ module Lutaml
       # silently parses as `and` + the attribute "roid" rather than raising.
       rule(:and_op) { str("&&") | (str("and") >> ident_char.absent?) }
 
+      # Parse each operand once; repeating it in an alternative compounds
+      # backtracking inside nested groups.
       rule(:and_expr) do
-        (not_expr.as(:left) >> sp? >> and_op.as(:operator) >>
-          sp? >> and_expr.as(:right)).as(:binary) | not_expr
+        (not_expr.as(:left) >> (sp? >> and_op.as(:operator) >>
+          sp? >> and_expr.as(:right)).maybe).as(:binary)
       end
 
       rule(:or_expr) do
-        (and_expr.as(:left) >> sp? >> str("||").as(:operator) >>
-          sp? >> or_expr.as(:right)).as(:binary) | and_expr
+        (and_expr.as(:left) >> (sp? >> str("||").as(:operator) >>
+          sp? >> or_expr.as(:right)).maybe).as(:binary)
       end
 
       rule(:condition) { or_expr }
@@ -171,7 +173,7 @@ module Lutaml
       end
 
       # Full path expression. `absolute` is ALWAYS emitted (nil when relative)
-      # so the transform sees one stable key set: Parslet matches a hash on its
+      # so the transform sees one stable key set: Parsanol matches a hash on its
       # exact keys, and a second root rule would have to be duplicated for
       # every key added later.
       rule(:path_expr) do

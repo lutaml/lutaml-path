@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "parslet"
+require "parsanol"
 require_relative "path/version"
 require_relative "path/errors"
 require_relative "path/parser"
@@ -18,9 +18,10 @@ require_relative "path/resolver"
 module Lutaml
   module Path
     def self.parse(input)
-      tree = Parser.new.parse(input)
+      # Keep recursive grammar failures catchable on the Ruby engine.
+      tree = Parser.new.parse(input, mode: :ruby)
       Transformer.new.apply(tree)
-    rescue Parslet::ParseFailed => e
+    rescue Parsanol::ParseFailed => e
       raise ParseError, e.message
     rescue SystemStackError
       # The condition grammar recurses through group/not/and/or, so an input

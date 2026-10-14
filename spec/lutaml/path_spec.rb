@@ -4,6 +4,56 @@ require "spec_helper"
 
 RSpec.describe Lutaml::Path do
   describe ".parse" do
+    it "uses Parsanol parser and transformer classes" do
+      expect(described_class::Parser.superclass).to eq(Parsanol::Parser)
+      expect(described_class::Transformer.superclass).to eq(Parsanol::Transform)
+    end
+
+    it "keeps parsing on the Ruby engine" do
+      allow(Parsanol::Native).to receive(:parse).and_raise(NotImplementedError)
+
+      expect(described_class.parse("obj.x[exists]").conditions.first)
+        .to eq(described_class::Condition::Existence.new)
+    end
+
+    it "translates the actual Parsanol failure without losing its message" do
+      input = "obj.x[a=]"
+      failure = begin
+        described_class::Parser.new.parse(input, mode: :ruby)
+      rescue Parsanol::ParseFailed => e
+        e
+      end
+
+      expect(failure).to be_a(Parsanol::ParseFailed)
+      expect { described_class.parse(input) }
+        .to raise_error(described_class::ParseError, failure.message)
+    end
+
+    it "captures each boolean operand once when no operator follows" do
+      { and_expr: :exists, or_expr: :binary }.each do |rule, left_key|
+        tree = described_class::Parser.new.public_send(rule).parse("exists")
+        expect(tree.fetch(:binary).keys).to eq([:left])
+        expect(tree.fetch(:binary).fetch(:left).keys).to eq([left_key])
+      end
+    end
+
+    it "keeps repeated boolean operators right associative" do
+      %w[&& and ||].each do |operator|
+        condition = described_class.parse("obj.x[a='1' #{operator} b='2' #{operator} c='3']")
+                                   .conditions.first
+
+        expect(condition.left.lhs.names).to eq(["a"])
+        expect(condition.right.left.lhs.names).to eq(["b"])
+        expect(condition.right.right.lhs.names).to eq(["c"])
+      end
+    end
+
+    it "reports a balanced filter beyond the Ruby stack limit as ParseError" do
+      input = "obj.x[#{"(" * 500}exists#{")" * 500}]"
+
+      expect { described_class.parse(input) }.to raise_error(described_class::ParseError)
+    end
+
     it "parses simple paths" do
       path = described_class.parse("Element")
       expect(path.absolute?).to be false
@@ -298,7 +348,7 @@ RSpec.describe Lutaml::Path do
     end
 
     it "parses an in-list of any arity" do
-      # A one-element list collapses to a bare Hash in Parslet rather than a
+      # A one-element list collapses to a bare Hash in Parsanol rather than a
       # one-element Array. Getting that wrong raised TypeError straight out of
       # .parse, bypassing the ParseError rescue. The README only ever shows a
       # three-element list, so this was never exercised.
@@ -357,7 +407,7 @@ RSpec.describe Lutaml::Path do
     end
 
     it "parses an empty quoted value" do
-      # Parslet yields [] rather than a slice for an empty repeat, so a
+      # Parsanol yields [] rather than a slice for an empty repeat, so a
       # `simple` transform rule would never match and the node would stay raw.
       path = described_class.parse("obj.x[a='']")
       expect(path.conditions.first.rhs)
