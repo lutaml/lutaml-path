@@ -28,6 +28,18 @@ RSpec.describe Lutaml::Path do
         .to eq("obj")
     end
 
+    it "honors keyword options over positional options while keeping Ruby parsing" do
+      allow(Parsanol::Native).to receive(:parse).and_raise(NotImplementedError)
+      parser = described_class::Parser.new
+
+      tree = parser.parse("Element", { mode: :native }, mode: :native)
+      expect(tree[:first_segment][:segment][:content].to_s).to eq("Element")
+      expect(parser.parse("obj.", { prefix: false }, prefix: true)[:first_segment][:segment][:content].to_s)
+        .to eq("obj")
+      expect { parser.parse("obj.", { prefix: true }, prefix: false) }
+        .to raise_error(Parsanol::ParseFailed)
+    end
+
     it "keeps direct parser nesting catchable even with explicit native requests" do
       program = <<~'RUBY'
         require "lutaml/path"
@@ -60,7 +72,7 @@ RSpec.describe Lutaml::Path do
     end
 
     it "normalizes direct parser stack exhaustion" do
-      input = "obj.x[#{"(" * 2000}exists#{")" * 2000}]"
+      input = "obj.x[#{"(" * 5000}exists#{")" * 5000}]"
 
       expect { described_class::Parser.new.parse(input) }
         .to raise_error(described_class::ParseError, "expression nests too deeply to parse")
@@ -99,7 +111,7 @@ RSpec.describe Lutaml::Path do
     end
 
     it "reports a balanced filter beyond the Ruby stack limit as ParseError" do
-      input = "obj.x[#{"(" * 500}exists#{")" * 500}]"
+      input = "obj.x[#{"(" * 2000}exists#{")" * 2000}]"
 
       expect { described_class.parse(input) }.to raise_error(described_class::ParseError)
     end
