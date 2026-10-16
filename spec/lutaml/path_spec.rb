@@ -1,9 +1,141 @@
 # frozen_string_literal: true
 
 require "spec_helper"
+require "open3"
+require "rbconfig"
 
 RSpec.describe Lutaml::Path do
+  describe ".parse_instance" do
+    it "preserves parsed model and instance path shapes" do
+      %w[title contributor.role.type contributor[exists]].each do |input|
+        expect(described_class.parse_instance(input)).to eq(described_class.parse(input))
+      end
+    end
+
+    it "normalizes malformed instance path failures" do
+      expect { described_class.parse_instance("contributor[type=]") }
+        .to raise_error(described_class::ParseError)
+    end
+  end
+
+  describe ".resolve" do
+    it "normalizes malformed path failures before resolving" do
+      expect { described_class.resolve({}, "contributor[type=]") }
+        .to raise_error(described_class::ParseError)
+    end
+  end
+
   describe ".parse" do
+    it "uses Parsanol parser and transformer classes" do
+      expect(described_class::Parser.superclass).to eq(Parsanol::Parser)
+      expect(described_class::Transformer.superclass).to eq(Parsanol::Transform)
+    end
+
+    it "keeps parsing on the Ruby engine" do
+      allow(Parsanol::Native).to receive(:parse).and_raise(NotImplementedError)
+
+      expect(described_class.parse("obj.x[exists]").conditions.first)
+        .to eq(described_class::Condition::Existence.new)
+    end
+
+    it "preserves the parser arity and forwards prefix options" do
+      parser = described_class::Parser.new
+
+      expect(parser.method(:parse).arity).to eq(-2)
+      expect(parser.parse("obj.", { prefix: true })[:first_segment][:segment][:content].to_s)
+        .to eq("obj")
+      expect(parser.parse("obj.", prefix: true)[:first_segment][:segment][:content].to_s)
+        .to eq("obj")
+    end
+
+    it "honors keyword options over positional options while keeping Ruby parsing" do
+      allow(Parsanol::Native).to receive(:parse).and_raise(NotImplementedError)
+      parser = described_class::Parser.new
+
+      tree = parser.parse("Element", { mode: :native }, mode: :native)
+      expect(tree[:first_segment][:segment][:content].to_s).to eq("Element")
+      expect(parser.parse("obj.", { prefix: false }, prefix: true)[:first_segment][:segment][:content].to_s)
+        .to eq("obj")
+      expect { parser.parse("obj.", { prefix: true }, prefix: false) }
+        .to raise_error(Parsanol::ParseFailed)
+    end
+
+    it "keeps direct parser nesting catchable even with explicit native requests" do
+      program = <<~'RUBY'
+        require "lutaml/path"
+        input = "obj.x[#{"(" * ARGV[0].to_i}exists#{")" * ARGV[0].to_i}]"
+        parser = Lutaml::Path::Parser.new
+        begin
+          tree = case ARGV[1]
+                 when "symbol" then parser.parse(input, :native)
+                 when "hash" then parser.parse(input, { mode: :native })
+                 when "keyword" then parser.parse(input, mode: :native)
+                 else parser.parse(input)
+                 end
+          condition = tree.fetch(:attrs).first.fetch(:segment).fetch(:condition)
+          condition = condition.fetch(:binary).fetch(:left) while condition.key?(:binary)
+          puts condition.fetch(:exists).to_s
+        rescue Lutaml::Path::ParseError => e
+          puts e.message
+        end
+      RUBY
+      library = File.expand_path("../../lib", __dir__)
+
+      [200, 500, 2000].product(%w[default symbol hash keyword]).each do |depth, mode|
+        output, error, status = Open3.capture3(RbConfig.ruby, "-I", library,
+                                               "-e", program, depth.to_s, mode)
+        expect(status.success?).to be(true), error
+        expect(output.strip).to satisfy do |result|
+          ["exists", "expression nests too deeply to parse"].include?(result)
+        end
+      end
+    end
+
+    it "normalizes direct parser stack exhaustion" do
+      input = "obj.x[#{"(" * 5000}exists#{")" * 5000}]"
+
+      expect { described_class::Parser.new.parse(input) }
+        .to raise_error(described_class::ParseError, "expression nests too deeply to parse")
+    end
+
+    it "translates the actual Parsanol failure without losing its message" do
+      input = "obj.x[a=]"
+      failure = begin
+        described_class::Parser.new.parse(input, mode: :ruby)
+      rescue Parsanol::ParseFailed => e
+        e
+      end
+
+      expect(failure).to be_a(Parsanol::ParseFailed)
+      expect { described_class.parse(input) }
+        .to raise_error(described_class::ParseError, failure.message)
+    end
+
+    it "captures each boolean operand once when no operator follows" do
+      { and_expr: :exists, or_expr: :binary }.each do |rule, left_key|
+        tree = described_class::Parser.new.public_send(rule).parse("exists")
+        expect(tree.fetch(:binary).keys).to eq([:left])
+        expect(tree.fetch(:binary).fetch(:left).keys).to eq([left_key])
+      end
+    end
+
+    it "keeps repeated boolean operators right associative" do
+      %w[&& and ||].each do |operator|
+        condition = described_class.parse("obj.x[a='1' #{operator} b='2' #{operator} c='3']")
+                                   .conditions.first
+
+        expect(condition.left.lhs.names).to eq(["a"])
+        expect(condition.right.left.lhs.names).to eq(["b"])
+        expect(condition.right.right.lhs.names).to eq(["c"])
+      end
+    end
+
+    it "reports a balanced filter beyond the Ruby stack limit as ParseError" do
+      input = "obj.x[#{"(" * 2000}exists#{")" * 2000}]"
+
+      expect { described_class.parse(input) }.to raise_error(described_class::ParseError)
+    end
+
     it "parses simple paths" do
       path = described_class.parse("Element")
       expect(path.absolute?).to be false
@@ -298,7 +430,7 @@ RSpec.describe Lutaml::Path do
     end
 
     it "parses an in-list of any arity" do
-      # A one-element list collapses to a bare Hash in Parslet rather than a
+      # A one-element list collapses to a bare Hash in Parsanol rather than a
       # one-element Array. Getting that wrong raised TypeError straight out of
       # .parse, bypassing the ParseError rescue. The README only ever shows a
       # three-element list, so this was never exercised.
@@ -357,7 +489,7 @@ RSpec.describe Lutaml::Path do
     end
 
     it "parses an empty quoted value" do
-      # Parslet yields [] rather than a slice for an empty repeat, so a
+      # Parsanol yields [] rather than a slice for an empty repeat, so a
       # `simple` transform rule would never match and the node would stay raw.
       path = described_class.parse("obj.x[a='']")
       expect(path.conditions.first.rhs)

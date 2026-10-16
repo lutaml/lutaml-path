@@ -1,11 +1,11 @@
 # frozen_string_literal: true
 
 # lib/lutaml/path/transformer.rb
-require "parslet"
+require "parsanol"
 
 module Lutaml
   module Path
-    class Transformer < Parslet::Transform
+    class Transformer < Parsanol::Transform
       # --- condition AST ----------------------------------------------------
       # Tokenise into names rather than splitting on a naive lookbehind: a name
       # may itself end in an escaped backslash, so "a\\\\.b" is the two names
@@ -15,7 +15,7 @@ module Lutaml
         names = a.to_s.scan(/(?:\\.|[^.\\])+/)
         Condition::AttributeRef.new(names.map { |n| n.gsub(/\\(.)/) { ::Regexp.last_match(1) } })
       end
-      # An empty quoted value ('') makes Parslet's repeat yield [] rather than a
+      # An empty quoted value ('') makes Parsanol's repeat yield [] rather than a
       # slice, so `simple` would never match and the node would stay raw.
       rule(string: subtree(:s)) do
         raw = s.is_a?(Array) ? "" : s.to_s
@@ -30,7 +30,7 @@ module Lutaml
         Condition::Comparison.new(d[:l], d[:o].to_s, d[:r])
       end
 
-      # Parslet collapses a one-element repetition to a bare Hash rather than a
+      # Parsanol collapses a one-element repetition to a bare Hash rather than a
       # one-element Array, and Array({v: x}) would yield [[:v, x]] via Hash#to_a
       # -- so `in ('ISBN')` used to raise TypeError out of Lutaml::Path.parse.
       # Wrap-then-flatten normalises both shapes.
@@ -39,6 +39,8 @@ module Lutaml
       end
 
       rule(not: subtree(:n)) { Condition::Negation.new(n) }
+
+      rule(binary: { left: subtree(:l) }) { l }
 
       rule(binary: { left: subtree(:l), operator: simple(:o), right: subtree(:r) }) do |d|
         Condition::BinaryOperation.new(d[:o].to_s, d[:l], d[:r])

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "parslet"
+require "parsanol"
 require_relative "path/version"
 require_relative "path/errors"
 require_relative "path/parser"
@@ -20,13 +20,10 @@ module Lutaml
     def self.parse(input)
       tree = Parser.new.parse(input)
       Transformer.new.apply(tree)
-    rescue Parslet::ParseFailed => e
+    rescue Parsanol::ParseFailed => e
       raise ParseError, e.message
     rescue SystemStackError
-      # The condition grammar recurses through group/not/and/or, so an input
-      # nested deeply enough (~200 parentheses) exhausts the stack. That is a
-      # property of the input, not a bug in the caller: parse must only ever
-      # raise ParseError.
+      # Transforming deeply nested conditions can also exhaust the stack.
       raise ParseError, "expression nests too deeply to parse"
     end
 
@@ -43,7 +40,7 @@ module Lutaml
     def self.parse_instance(input)
       tree = Parser.new.parse(input)
       Transformer.new.apply(tree)
-    rescue Parslet::ParseFailed => e
+    rescue Parsanol::ParseFailed => e
       raise ParseError, e.message
     rescue SystemStackError
       raise ParseError, "expression nests too deeply to parse"
