@@ -51,12 +51,25 @@ module Lutaml
       # and a leaf cannot know whether the whole path has dot-steps or filters,
       # so the root rule -- the only place that knows -- decides the type and
       # unwraps Step -> PathSegment when it picks ElementPath.
+      #
+      # parsanol hands captured leaves back as binary-tagged strings, which
+      # raises ArgumentError (invalid byte sequence) at the first downstream
+      # regex on non-ASCII input. The boundary re-tag fixes mistagged-valid
+      # captures; byte loss inside a multibyte character is a parsanol defect
+      # (parsanol/parsanol-ruby#410) and scrubs to replacement content until
+      # it ships. Rule blocks run under the transform engine's self, so the
+      # helper is a class method.
+      def self.utf8(content)
+        content.to_s.dup.force_encoding("UTF-8").scrub
+      end
+
       rule(content: simple(:content)) do |dict|
-        Step.new(PathSegment.new(dict[:content].to_s))
+        Step.new(PathSegment.new(Transformer.utf8(dict[:content])))
       end
 
       rule(content: simple(:content), condition: subtree(:cond)) do |dict|
-        Step.new(PathSegment.new(dict[:content].to_s), condition: dict[:cond])
+        Step.new(PathSegment.new(Transformer.utf8(dict[:content])),
+                 condition: dict[:cond])
       end
 
       rule(segment: subtree(:segment)) { segment }
